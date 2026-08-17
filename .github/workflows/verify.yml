@@ -1,0 +1,37 @@
+name: Verify business packages
+
+# Layer 1 of 3 (production handoff item 4 follow-up) — fastest feedback,
+# catches a bad package before it's even merged. Layers 2 (package.json's
+# prestart hook) and 3 (server.ts's boot-time check) are the ones that
+# can't be skipped; this one is the one that saves the round trip of
+# finding out at deploy time.
+#
+# NOT exercised against real GitHub Actions infrastructure from within the
+# sandbox this was written in — that needs an actual repo and a real CI
+# run, neither available here. Syntax and logic reviewed, not empirically
+# verified the way everything else in this project has been. Flagging
+# that distinction explicitly rather than claiming more confidence than
+# is warranted.
+
+on:
+  push:
+    paths:
+      - "domains/**"
+      - "src/verify/**"
+      - "src/domain/**"
+  pull_request:
+    paths:
+      - "domains/**"
+      - "src/verify/**"
+      - "src/domain/**"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npm run verify-domains

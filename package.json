@@ -1,0 +1,40 @@
+{
+  "name": "whatsapp-sales-agent",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "prestart": "npm run verify-domains",
+    "dev": "tsx watch server.ts",
+    "start": "tsx server.ts",
+    "typecheck": "tsc --noEmit",
+    "test:state": "tsx eval/state/sanity.test.ts",
+    "verify-domains": "tsx bin/verify-domain.ts domains/website-development.yaml domains/insurance.yaml",
+    "regression": "tsx eval/regression/website-development.regression.ts && tsx eval/regression/insurance.regression.ts",
+    "dashboard-verify": "tsx eval/dashboard/verification.ts",
+    "dashboard-xss-verify": "tsx eval/dashboard/xss-regression.ts",
+    "webhook-security-verify": "tsx eval/webhook/security-regression.ts",
+    "test:5a-harness": "tsx eval/5a-harness/scenarios.ts",
+    "test:turn-context": "tsx eval/turn-context/race-test.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "js-yaml": "^4.1.0",
+    "pino": "^9.4.0",
+    "yaml": "^2.9.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/js-yaml": "^4.0.9",
+    "@types/jsdom": "^30.0.0",
+    "@types/node": "^20.14.15",
+    "jsdom": "^30.0.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}

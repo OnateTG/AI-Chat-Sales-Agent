@@ -1,0 +1,73 @@
+# Render Blueprint. Reference: https://render.com/docs/blueprint-spec
+#
+# Render reads this automatically for a "New -> Blueprint" deploy. It is
+# NOT read by Procfile-based deploys or a manually-configured web
+# service -- if you instead create the service by hand in the Render
+# dashboard, use this file as the source of truth for what to type into
+# each field there (Build Command, Start Command, etc.), same as
+# ./Procfile's `web:` line for a Heroku-style deploy.
+#
+# What's deliberately NOT in here yet, so it isn't silently broken:
+#
+# - A persistent disk. This app writes to three local paths that need to
+#   survive a restart/redeploy -- data/conversations/ (ConversationStore),
+#   data/webhook-seen-messages.json (WebhookIdempotencyStore), and
+#   backups/ (every config-save backup). Render's disk feature mounts at
+#   an absolute path you choose, separate from where your repo checks
+#   out -- the app doesn't currently read any of these three paths from
+#   an environment variable, so a `disk:` block here would look correct
+#   but do nothing until that's wired up. Shipping a paid disk resource
+#   that silently doesn't attach to anything is worse than leaving it
+#   out. See docs/ADL.md / docs/DEPLOYMENT.md for the full writeup; this
+#   is a distinct, separate piece of work from Blueprint creation.
+# - `plan`. Defaulted to `free` below so this doesn't create unexpected
+#   billing on its own. Free instances spin down after 15 minutes of
+#   inactivity, and the next request pays a 30-60s cold start -- for a
+#   webhook a real customer's message is waiting on, that's a real
+#   latency risk, not just a demo inconvenience. Upgrading to at least
+#   `starter` is worth doing deliberately before any real traffic; that's
+#   a cost decision for whoever's directing the project, not made here.
+
+services:
+  - type: web
+    name: whatsapp-sales-agent
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      # Model provider -- see .env.example. Falls back to Ollama if unset,
+      # which needs `ollama serve` reachable, not meaningful on Render.
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: NVIDIA_BASE_URL
+        value: https://integrate.api.nvidia.com/v1
+      - key: NVIDIA_MODEL_FAST
+        value: meta/llama-3.1-8b-instruct
+      - key: NVIDIA_MODEL_QUALITY
+        value: meta/llama-3.1-70b-instruct
+
+      # WhatsApp Cloud API
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      # App secret from the Meta App Dashboard (App Settings > Basic) --
+      # NOT the same value as the access token or verify token above.
+      # Fails closed (500 on every webhook request) if unset, not just a
+      # warning -- see docs/DEPLOYMENT.md "Webhook security".
+      - key: WHATSAPP_APP_SECRET
+        sync: false
+
+      # Operator dashboard -- generate with `npx tsx bin/hash-password.ts
+      # "your-password-here"` and paste only the hash, never the
+      # plaintext, when Render prompts for this during Blueprint creation.
+      - key: OPERATOR_PASSWORD_HASH
+        sync: false
+
+    # PORT is intentionally not set here -- Render injects it
+    # automatically (default 10000) and server.ts already reads
+    # process.env.PORT with its own fallback for local dev.

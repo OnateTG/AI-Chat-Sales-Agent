@@ -1,0 +1,80 @@
+# ATTEMPT 1 -- naive authoring, kept for the friction log.
+# NOT the domain package this experiment ships. See docs/ADL.md entry 009
+# and eval/domain/insurance-friction-demo.ts for what this reveals.
+#
+# This is the domain package a reasonable author would write on a first
+# pass: one domain-specific variable per policy type, mirroring how
+# website-development declared booking_or_ecommerce_needs as its own thing.
+# It compiles fine, loads fine, and is structurally identical in shape to
+# the website package. The problem only shows up in RUNTIME BEHAVIOR against
+# the existing kernel, not in the domain package's own validity.
+#
+# Restructured to match the current domain/business/business_knowledge
+# template shape (variables/recommendation now nest inside domain:) --
+# this is a structural sync only, doesn't change what the file demonstrates.
+
+domain:
+  name: "Insurance Qualification (naive attempt)"
+  description: "Qualifying a lead for auto, life, or health insurance"
+
+  variables:
+    core:
+      goal:
+        description: "What the customer wants insurance to achieve or protect"
+        importance: critical
+        completion:
+          required: [desired_outcome, business_reason]
+      current_situation:
+        description: "Whether they have existing coverage and its state"
+        importance: critical
+        completion:
+          required: [has_existing_coverage, coverage_adequacy]
+      gap:
+        description: "What's missing or at risk without proper coverage"
+        importance: high
+        completion:
+          required: [primary_exposure]
+      readiness:
+        description: "Timeline, budget awareness, decision authority"
+        importance: low
+        completion:
+          required: [timeline]
+
+    domain_specific:
+      auto_details:
+        description: "Vehicle details needed to quote auto insurance"
+        importance: high
+        completion:
+          required: [vehicle_info, driver_history]
+      life_details:
+        description: "Details needed to quote life insurance"
+        importance: high
+        completion:
+          required: [beneficiary_info, coverage_amount]
+      health_details:
+        description: "Details needed to quote health insurance"
+        importance: high
+        completion:
+          required: [dependents, pre_existing_conditions]
+
+  recommendation:
+    available_options:
+      - name: "Auto Insurance"
+        fits_when: "Customer's goal concerns vehicle protection or liability"
+      - name: "Life Insurance"
+        fits_when: "Customer's goal concerns income replacement or family financial protection"
+      - name: "Health Insurance"
+        fits_when: "Customer's goal concerns medical cost protection"
+    completion_requirement:
+      - goal
+      - current_situation
+      - gap
+      - auto_details
+      - life_details
+      - health_details
+    no_fit_fallback: "Present the closest matching option."
+
+business_knowledge:
+  topics:
+    - topic: "placeholder"
+      content: "not relevant to this experiment"

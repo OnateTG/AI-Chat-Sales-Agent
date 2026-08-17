@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Operator Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F5F1;
+    --panel: #FFFFFF;
+    --ink: #1C2321;
+    --muted: #6B6459;
+    --line: #E4E0D8;
+    --signal-live: #2F6F5E;
+    --signal-live-bg: #E6EEEC;
+    --signal-wait: #B8863B;
+    --signal-wait-bg: #F3EADA;
+    --signal-alert: #A64B3F;
+    --signal-alert-bg: #F3E4E1;
+    --font-display: 'Fraunces', serif;
+    --font-ui: 'Inter', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--font-ui);
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 14px;
+  }
+  .layout { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+  .rail {
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    padding: 24px 0;
+  }
+  .rail-title {
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 600;
+    padding: 0 24px 20px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 8px;
+  }
+  .rail-item {
+    display: block;
+    padding: 10px 24px;
+    color: var(--muted);
+    cursor: pointer;
+    font-weight: 500;
+    border-left: 3px solid transparent;
+  }
+  .rail-item:hover { color: var(--ink); background: var(--bg); }
+  .rail-item.active { color: var(--ink); border-left-color: var(--signal-live); background: var(--bg); }
+
+  .status-strip {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    padding: 10px 32px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    display: flex;
+    gap: 24px;
+  }
+  .status-strip strong { color: var(--ink); }
+
+  main { padding: 32px; max-width: 920px; }
+  h1 { font-family: var(--font-display); font-size: 24px; font-weight: 600; margin: 0 0 20px; }
+  h2 { font-family: var(--font-display); font-size: 17px; font-weight: 600; margin: 28px 0 12px; }
+
+  .pill {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    display: inline-block;
+  }
+  .pill-active { background: var(--signal-live-bg); color: var(--signal-live); }
+  .pill-paused, .pill-abandoned { background: var(--signal-wait-bg); color: var(--signal-wait); }
+  .pill-completed { background: var(--signal-live-bg); color: var(--signal-live); }
+  .pill-escalated { background: var(--signal-alert-bg); color: var(--signal-alert); }
+  .pill-yes { background: var(--signal-live-bg); color: var(--signal-live); }
+  .pill-no { background: var(--line); color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  th { font-weight: 600; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
+  tr:last-child td { border-bottom: none; }
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover { background: var(--bg); }
+  td.mono, .mono { font-family: var(--font-mono); }
+
+  .toolbar { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; }
+  input, select, textarea {
+    font-family: var(--font-ui);
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--panel);
+    font-size: 13px;
+  }
+  button {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 5px;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--panel);
+    cursor: pointer;
+    font-size: 13px;
+  }
+  button.secondary { background: var(--panel); color: var(--ink); }
+  button.danger { background: var(--signal-alert); border-color: var(--signal-alert); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 20px; margin-bottom: 16px; }
+  .field-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .field-row:last-child { border-bottom: none; }
+  .field-row input { width: 260px; }
+
+  .diff-entry { font-family: var(--font-mono); font-size: 12.5px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .diff-old { color: var(--signal-alert); text-decoration: line-through; }
+  .diff-new { color: var(--signal-live); }
+
+  .empty { color: var(--muted); font-style: italic; padding: 24px; text-align: center; }
+  .error-box { background: var(--signal-alert-bg); color: var(--signal-alert); padding: 12px 16px; border-radius: 5px; margin-bottom: 16px; font-family: var(--font-mono); font-size: 12.5px; white-space: pre-wrap; }
+  .success-box { background: var(--signal-live-bg); color: var(--signal-live); padding: 12px 16px; border-radius: 5px; margin-bottom: 16px; }
+  .back-link { color: var(--muted); cursor: pointer; font-size: 13px; margin-bottom: 12px; display: inline-block; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <nav class="rail">
+    <div class="rail-title">Operator Console</div>
+    <div class="rail-item active" data-view="conversations">Conversations</div>
+    <div class="rail-item" data-view="config">Configuration</div>
+  </nav>
+
+  <div>
+    <div class="status-strip" id="status-strip">loading status…</div>
+    <main id="main"></main>
+  </div>
+</div>
+
+<script>
+const API = "/api/dashboard";
+let currentView = "conversations";
+
+async function api(path, opts) {
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: { "Content-Type": "application/json", ...(opts?.headers || {}) },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(data.error || "Request failed"), { data });
+  return data;
+}
+
+// ---------- Safe DOM-building helpers (P0 XSS fix, docs/ADL.md) ----------
+//
+// Every value on this page that can originate from customer input
+// (conversation record fields, extracted variable values), business
+// config (pricing/topics/options), or server error text is now inserted
+// via textContent, DOM element .value assignment, or setAttribute --
+// never by interpolating a variable into an HTML string that then gets
+// parsed via innerHTML. innerHTML below is only ever assigned a fixed,
+// literal string with zero data interpolation (page shells, "Loading…",
+// empty-state messages). Event handlers are attached via addEventListener
+// with real closures, not by concatenating data (e.g. a phone number)
+// into an inline onclick="...('...')" attribute string -- that pattern
+// was a second, independent injection vector (breaking out of both the
+// HTML attribute AND the JS string literal) on top of the innerHTML one.
+// See eval/dashboard/xss-regression.ts for the automated regression check.
+
+function h(tag, attrs, ...children) {
+  const el = document.createElement(tag);
+  if (attrs) {
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v == null || v === false) continue;
+      if (k === "class") el.className = v;
+      else el.setAttribute(k, v === true ? "" : v);
+    }
+  }
+  for (const child of children.flat(Infinity)) {
+    if (child == null || child === false) continue;
+    el.append(child.nodeType ? child : document.createTextNode(String(child)));
+  }
+  return el;
+}
+
+function clear(el) {
+  el.replaceChildren();
+}
+
+// `value` is always expected to be one of a small known enum (lifecycle
+// states, "yes"/"no") -- built via textContent + a sanitized class
+// suffix regardless, so this stays safe even if that assumption is ever
+// violated by a future caller.
+function pillEl(value) {
+  const cls = (value ?? "").toString().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+  return h("span", { class: `pill pill-${cls}` }, value ?? "");
+}
+
+async function refreshStatusStrip() {
+  const strip = document.getElementById("status-strip");
+  try {
+    const { metadata } = await api("/config");
+    clear(strip);
+    const verified = metadata.verificationStatus === "valid";
+    strip.append(
+      h("span", null, h("strong", null, "version"), " " + metadata.version),
+      h("span", null, h("strong", null, "status"), " ",
+        h("span", { style: verified ? "color:var(--signal-live)" : "color:var(--signal-alert)" }, verified ? "verified" : "INVALID")),
+      h("span", null, h("strong", null, "last modified"), " " + new Date(metadata.lastModified).toLocaleString())
+    );
+  } catch (e) {
+    strip.textContent = "status unavailable";
+  }
+}
+
+// ---------- Conversations ----------
+
+async function renderConversationsList() {
+  const main = document.getElementById("main");
+  // Static shell only -- no data interpolation anywhere in this literal, safe as innerHTML.
+  main.innerHTML = `
+    <h1>Conversations</h1>
+    <div class="toolbar">
+      <input id="search-phone" placeholder="Search phone number…" />
+      <select id="filter-lifecycle">
+        <option value="">All lifecycle states</option>
+        <option value="active">active</option>
+        <option value="paused">paused</option>
+        <option value="completed">completed</option>
+        <option value="abandoned">abandoned</option>
+        <option value="escalated">escalated</option>
+      </select>
+    </div>
+    <table>
+      <thead><tr><th>Phone</th><th>Lifecycle</th><th>Recommended</th><th>Automation</th><th>Last activity</th></tr></thead>
+      <tbody id="conv-rows"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+    </table>
+  `;
+
+  document.getElementById("search-phone").addEventListener("input", loadConversations);
+  document.getElementById("filter-lifecycle").addEventListener("change", loadConversations);
+  loadConversations();
+}
+
+async function loadConversations() {
+  const phone = document.getElementById("search-phone").value.trim();
+  const lifecycle = document.getElementById("filter-lifecycle").value;
+  const params = new URLSearchParams();
+  if (lifecycle) params.set("lifecycle", lifecycle);
+
+  const rows = document.getElementById("conv-rows");
+  try {
+    let list = await api("/conversations?" + params.toString());
+    if (phone) list = list.filter(r => r.phone.includes(phone));
+
+    clear(rows);
+    if (list.length === 0) {
+      rows.append(h("tr", null, h("td", { colspan: "5", class: "empty" }, "No conversations match.")));
+      return;
+    }
+    for (const r of list) {
+      const tr = h("tr", { class: "clickable" },
+        h("td", { class: "mono" }, r.phone),
+        h("td", null, pillEl(r.lifecycle)),
+        h("td", null, pillEl(r.recommendation_delivered ? "yes" : "no")),
+        h("td", null, r.automation_paused ? h("span", { class: "pill pill-paused" }, "paused") : h("span", { class: "pill pill-active" }, "running")),
+        h("td", { class: "mono" }, r.last_activity ? new Date(r.last_activity).toLocaleString() : "—")
+      );
+      // Real event listener closing over r.phone -- not a string built
+      // via onclick="renderConversationDetail('${r.phone}')", which would
+      // let a phone/customer field break out of the JS string literal.
+      tr.addEventListener("click", () => renderConversationDetail(r.phone));
+      rows.append(tr);
+    }
+  } catch (e) {
+    clear(rows);
+    rows.append(h("tr", null, h("td", { colspan: "5", class: "empty" }, "Failed to load: " + e.message)));
+  }
+}
+
+async function renderConversationDetail(phone) {
+  const main = document.getElementById("main");
+  main.innerHTML = `<div class="empty">Loading…</div>`;
+  const record = await api("/conversations/" + encodeURIComponent(phone));
+
+  clear(main);
+
+  const backLink = h("span", { class: "back-link" }, "← Back to conversations");
+  backLink.addEventListener("click", () => renderConversationsList());
+  main.append(backLink);
+
+  main.append(h("h1", { class: "mono" }, record.phone));
+
+  main.append(h("div", { class: "panel" },
+    h("div", { class: "field-row" }, h("span", null, "Lifecycle"), pillEl(record.lifecycle)),
+    h("div", { class: "field-row" }, h("span", null, "Recommendation delivered"), pillEl(record.recommendation_delivered ? "yes" : "no")),
+    h("div", { class: "field-row" }, h("span", null, "Automation"),
+      record.automation_paused
+        ? h("span", { class: "pill pill-paused" }, `paused — ${record.paused_reason || ""} (${record.paused_by || "unknown"})`)
+        : h("span", { class: "pill pill-active" }, "running")
+    ),
+    h("div", { class: "field-row" }, h("span", null, "Turn"), h("span", { class: "mono" }, String(record.turn)))
+  ));
+
+  main.append(h("h2", null, "Automation control"));
+  const killSwitchPanel = h("div", { class: "panel", id: "kill-switch-panel" });
+  if (record.automation_paused) {
+    const resumeBtn = h("button", null, "Resume automation");
+    resumeBtn.addEventListener("click", () => resumeConversation(record.phone));
+    killSwitchPanel.append(resumeBtn);
+  } else {
+    const pauseBtn = h("button", { class: "danger" }, "Pause automation");
+    pauseBtn.addEventListener("click", () => pauseConversation(record.phone));
+    killSwitchPanel.append(h("div", { style: "display:flex; gap:8px;" },
+      h("input", { id: "pause-reason", placeholder: "Reason (required)", style: "flex:1" }),
+      pauseBtn
+    ));
+  }
+  main.append(killSwitchPanel);
+
+  main.append(h("h2", null, "Variable state (read-only)"));
+  const tbody = h("tbody");
+  const entries = Object.entries(record.variables);
+  if (entries.length === 0) {
+    tbody.append(h("tr", null, h("td", { colspan: "4", class: "empty" }, "No variables recorded yet.")));
+  } else {
+    for (const [name, v] of entries) {
+      tbody.append(h("tr", null,
+        h("td", { class: "mono" }, name),
+        h("td", null, pillEl(v.status)),
+        h("td", { class: "mono" }, v.confidence ?? "—"),
+        h("td", null, (v.value || "").toString().slice(0, 60))
+      ));
+    }
+  }
+  main.append(h("table", null,
+    h("thead", null, h("tr", null, h("th", null, "Variable"), h("th", null, "Status"), h("th", null, "Confidence"), h("th", null, "Value"))),
+    tbody
+  ));
+}
+
+async function pauseConversation(phone) {
+  const reason = document.getElementById("pause-reason").value.trim();
+  if (!reason) { alert("A reason is required."); return; }
+  await api(`/conversations/${encodeURIComponent(phone)}/pause`, {
+    method: "POST",
+    body: JSON.stringify({ reason, operator: "dashboard" }),
+  });
+  renderConversationDetail(phone);
+}
+
+async function resumeConversation(phone) {
+  await api(`/conversations/${encodeURIComponent(phone)}/resume`, { method: "POST" });
+  renderConversationDetail(phone);
+}
+
+// ---------- Configuration ----------
+
+async function renderConfig() {
+  const main = document.getElementById("main");
+  main.innerHTML = `<div class="empty">Loading…</div>`;
+  const config = await api("/config");
+
+  clear(main);
+  main.append(h("h1", null, "Business Configuration"));
+  main.append(h("div", { id: "save-result" }));
+
+  main.append(h("h2", null, "Pricing ranges"));
+  const pricingPanel = h("div", { class: "panel", id: "pricing-panel" });
+  for (const [option, range] of Object.entries(config.pricing_ranges)) {
+    const input = h("input", { class: "pricing-input", "data-option": option });
+    input.value = range || ""; // property assignment -- never parsed as markup
+    pricingPanel.append(h("div", { class: "field-row" }, h("span", null, option), input));
+  }
+  main.append(pricingPanel);
+
+  main.append(h("h2", null, "Business knowledge topics"));
+  const topicsPanel = h("div", { class: "panel", id: "topics-panel" });
+  config.business_knowledge_topics.forEach((t, i) => {
+    const nameInput = h("input", { class: "topic-name", "data-idx": String(i), style: "width:100%; margin-bottom:6px; font-weight:600;" });
+    nameInput.value = t.topic;
+    const contentArea = h("textarea", { class: "topic-content", "data-idx": String(i), rows: "2", style: "width:100%;" });
+    contentArea.value = t.content; // property assignment -- no </textarea> breakout possible
+    topicsPanel.append(h("div", { style: "margin-bottom:14px;" }, nameInput, contentArea));
+  });
+  main.append(topicsPanel);
+
+  main.append(h("h2", null, "Available options"));
+  const optionsPanel = h("div", { class: "panel", id: "options-panel" });
+  config.available_options.forEach((o, i) => {
+    const nameInput = h("input", { class: "option-name", "data-idx": String(i), style: "width:100%; margin-bottom:6px; font-weight:600;" });
+    nameInput.value = o.name;
+    const fitsArea = h("textarea", { class: "option-fits", "data-idx": String(i), rows: "2", style: "width:100%;" });
+    fitsArea.value = o.fits_when;
+    optionsPanel.append(h("div", { style: "margin-bottom:14px;" }, nameInput, fitsArea));
+  });
+  main.append(optionsPanel);
+
+  const previewBtn = h("button", { class: "secondary" }, "Preview changes");
+  previewBtn.addEventListener("click", previewConfigChanges);
+  const saveBtn = h("button", { id: "confirm-save-btn", disabled: true }, "Confirm & save");
+  saveBtn.addEventListener("click", saveConfigChanges);
+  main.append(h("div", { class: "toolbar" }, previewBtn, saveBtn));
+  main.append(h("div", { id: "diff-panel" }));
+
+  window._configState = config;
+}
+
+function collectChanges() {
+  const config = window._configState;
+  const pricing_ranges = {};
+  document.querySelectorAll(".pricing-input").forEach(el => { pricing_ranges[el.dataset.option] = el.value; });
+
+  const business_knowledge_topics = config.business_knowledge_topics.map((t, i) => ({
+    topic: document.querySelector(`.topic-name[data-idx="${i}"]`).value,
+    content: document.querySelector(`.topic-content[data-idx="${i}"]`).value,
+  }));
+
+  const available_options = config.available_options.map((o, i) => ({
+    name: document.querySelector(`.option-name[data-idx="${i}"]`).value,
+    fits_when: document.querySelector(`.option-fits[data-idx="${i}"]`).value,
+  }));
+
+  return { pricing_ranges, business_knowledge_topics, available_options };
+}
+
+async function previewConfigChanges() {
+  const changes = collectChanges();
+  const diffPanel = document.getElementById("diff-panel");
+  clear(diffPanel);
+  try {
+    const { diff, errors } = await api("/config/preview", { method: "POST", body: JSON.stringify(changes) });
+    window._pendingChanges = changes;
+
+    // A blocked change (e.g. an option rename -- see docs/ADL.md item 12)
+    // shows before the diff and disables saving regardless of what else
+    // changed in this batch -- there's no partial save, so one blocked
+    // field makes the whole batch unsavable as-is until it's undone.
+    if (errors && errors.length > 0) {
+      const errBox = h("div", { class: "error-box" });
+      errBox.append("This can't be saved:");
+      for (const err of errors) {
+        errBox.append(h("br"), `[${err.code}] ${err.message}`);
+      }
+      diffPanel.append(errBox);
+    }
+
+    if (diff.length === 0) {
+      diffPanel.append(h("div", { class: "panel empty" }, "No changes to save."));
+      document.getElementById("confirm-save-btn").disabled = true;
+      return;
+    }
+    const panel = h("div", { class: "panel" }, h("h2", { style: "margin-top:0" }, "Changes to confirm"));
+    for (const d of diff) {
+      panel.append(h("div", { class: "diff-entry" },
+        d.path, h("br"),
+        h("span", { class: "diff-old" }, String(d.oldValue)),
+        " → ",
+        h("span", { class: "diff-new" }, String(d.newValue))
+      ));
+    }
+    diffPanel.append(panel);
+    document.getElementById("confirm-save-btn").disabled = Boolean(errors && errors.length > 0);
+  } catch (e) {
+    diffPanel.append(h("div", { class: "error-box" }, e.message));
+  }
+}
+
+async function saveConfigChanges() {
+  const resultBox = document.getElementById("save-result");
+  const btn = document.getElementById("confirm-save-btn");
+  btn.disabled = true;
+  clear(resultBox);
+  try {
+    const result = await api("/config/save", { method: "POST", body: JSON.stringify(window._pendingChanges) });
+    if (result.success) {
+      let msg = `Saved. New version: ${result.version}. Backup: ${result.backupPath}.`;
+      if (result.reloadFailed) msg += ` WARNING: hot reload failed (${result.reloadError}) — the file was written but the running process is still serving the previous version until this is resolved.`;
+      resultBox.append(h("div", { class: result.reloadFailed ? "error-box" : "success-box" }, msg));
+      renderConfig();
+      refreshStatusStrip();
+    } else {
+      const lines = ["Save rejected:", ...(result.errors || []).map(e => `[${e.code}] ${e.path}: ${e.message}`)];
+      resultBox.append(h("div", { class: "error-box" }, lines.join("\n")));
+      btn.disabled = false;
+    }
+  } catch (e) {
+    resultBox.append(h("div", { class: "error-box" }, e.message));
+    btn.disabled = false;
+  }
+}
+
+// ---------- Nav ----------
+
+document.querySelectorAll(".rail-item").forEach(item => {
+  item.addEventListener("click", () => {
+    document.querySelectorAll(".rail-item").forEach(i => i.classList.remove("active"));
+    item.classList.add("active");
+    currentView = item.dataset.view;
+    if (currentView === "conversations") renderConversationsList();
+    if (currentView === "config") renderConfig();
+  });
+});
+
+refreshStatusStrip();
+renderConversationsList();
+</script>
+</body>
+</html>

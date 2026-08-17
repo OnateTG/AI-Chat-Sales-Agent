@@ -1,0 +1,149 @@
+# Website Development domain package.
+# Restructured to the domain/business/business_knowledge three-section split
+# per Domain Package Specification's current §1 (organized by consumer).
+# See docs/ADL.md for the sync entry and for why this file KEEPS the
+# ADL-009 mitigation (branding_assets removed, completion_requirement
+# expanded) even though the spec's own illustrative worked example doesn't
+# apply it — this file has to actually run; the spec's example only has to
+# teach the shape and flag the known issue.
+# Pricing block below is PLACEHOLDER — do not use in production until
+# business.pricing.ranges and the timelines topic are replaced with real
+# figures.
+
+business_package:
+  version: "0.1.0" # pre-production — pricing still placeholder, see above
+
+domain:
+  name: "Website Development"
+  description: "Building a business website (new build, first version delivered within 24 hours; customer decides within a fixed window before the preview link expires)"
+
+  variables:
+    core:
+      goal:
+        description: "What the customer wants the website to achieve"
+        importance: critical
+        completion:
+          required:
+            - desired_outcome   # e.g. more leads, credibility, bookings
+            - business_reason   # why this matters to them now
+
+      current_situation:
+        description: "Their current online presence, in whatever form it takes"
+        importance: critical
+        completion:
+          # Was: [has_existing_site, existing_site_condition] -- but
+          # existing_site_condition can never be satisfied for a customer
+          # with no existing site, permanently blocking completion for
+          # arguably the most common lead profile. Fixed per docs/ADL.md
+          # entry 009: collapse to a single sub-attribute that's always
+          # answerable, whatever the actual answer is.
+          required:
+            - situation_described   # covers "no site," "has a site," or informal presence (Instagram/WhatsApp) in one always-answerable statement
+
+      gap:
+        description: "What's preventing them from achieving the goal today"
+        importance: high
+        completion:
+          required:
+            - primary_obstacle
+
+      readiness:
+        description: "Timeline, budget awareness, decision authority"
+        importance: low
+        completion:
+          required:
+            - timeline
+
+    domain_specific:
+      booking_or_ecommerce_needs:
+        description: "Whether the site needs booking, online payments, or a shopping cart"
+        importance: high
+        completion:
+          required:
+            - feature_requirements
+
+      # branding_assets REMOVED as a tracked variable -- see docs/ADL.md 009,
+      # Finding B (open, kernel-level, not domain-authorable). As declared
+      # (importance: medium, excluded from completion_requirement), it
+      # permanently blocked produce_recommendation: the Engine's
+      # progress_variable objective iterates over ALL declared variables
+      # regardless of importance tier or completion_requirement membership,
+      # confirmed not fixable by importance tiering at any level. Temporary
+      # capability regression, not the intended design -- pending
+      # architecture review of Runtime Step 4's priority-3/4 scope mismatch.
+      # If the customer volunteers brand asset info, Call B can still
+      # acknowledge it via business_knowledge below; it's just not tracked
+      # toward completion or actively pursued anymore.
+
+  recommendation:
+    available_options:
+      - name: "Brochure Website"
+        fits_when: "Customer wants an informational presence with contact details, no online transactions"
+      - name: "Lead-Generation Website"
+        fits_when: "Customer's goal is enquiries/leads and gap involves no clear way for customers to make contact"
+      - name: "E-Commerce Website"
+        fits_when: "Customer needs to sell products or take payments directly online"
+      - name: "Booking Website"
+        fits_when: "Customer runs an appointment- or reservation-based business"
+
+    completion_requirement:
+      # Expanded to include EVERY declared variable, including readiness --
+      # not the original design intent (timeline/budget shouldn't need to
+      # block a recommendation), but partial completion_requirement is not
+      # currently functional: readiness is core-template-mandatory,
+      # low-importance, and excluded from completion_requirement in the
+      # spec's own worked example -- yet still blocks produce_recommendation
+      # forever, same as branding_assets did. See docs/ADL.md 009. This is
+      # the workaround admitting the limitation, not a fix.
+      - goal
+      - current_situation
+      - gap
+      - booking_or_ecommerce_needs
+      - readiness
+
+    no_fit_fallback: >
+      If the completed state describes a need spanning multiple options
+      (e.g. both booking and e-commerce), present the closest option and
+      note the additional capability can be added, rather than forcing a
+      single rigid category.
+
+business:
+  pricing:
+    # PLACEHOLDER VALUES -- replace with real figures before production use.
+    ranges:                    # FACT -- Call B only
+      "Brochure Website": "<PLACEHOLDER: e.g. ₦X - ₦Y>"
+      "Lead-Generation Website": "<PLACEHOLDER: e.g. ₦X - ₦Y>"
+      "E-Commerce Website": "<PLACEHOLDER: e.g. ₦X - ₦Y>"
+      "Booking Website": "<PLACEHOLDER: e.g. ₦X - ₦Y>"
+    quoting_rules:              # RULE -- Engine-evaluated
+      - condition: "recommendation.completion_requirement not yet satisfied"
+        mode: range_only
+      - condition: "recommendation.completion_requirement satisfied"
+        mode: exact_quote_allowed
+
+business_knowledge:
+  topics:
+    - topic: "Brand assets"
+      content: >
+        If the customer mentions already having a logo, brand colors, or
+        photos, note it -- relevant to the build process, not tracked
+        toward the recommendation itself (see ADL-009).
+    - topic: "Pricing philosophy"
+      content: >
+        <PLACEHOLDER: what drives cost differences between packages --
+        complexity, integrations, content volume. Do not restate the
+        numeric ranges here; those live in the structured business.pricing
+        block above and reach Call B via pricing_context, not this prose
+        field.>
+    - topic: "Timelines"
+      content: >
+        First version of the site is built within 24 hours of the
+        recommendation. A preview link is sent, valid for a fixed window
+        (currently modeled as 7 days -- CONFIRM with business owner) during
+        which the customer can review it. The site becomes theirs on
+        payment; the link expires if the window closes without payment.
+        This is NOT a generic multi-week build timeline -- do not let
+        Call B default to industry-standard "2-3 weeks" phrasing.
+    - topic: "Feature comparisons between available_options"
+      content: >
+        <PLACEHOLDER: what's included in each package tier>

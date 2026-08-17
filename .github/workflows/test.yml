@@ -1,0 +1,51 @@
+name: Full test suite
+
+# Layer 2 -- complements verify.yml (Layer 1, "Verify business packages"),
+# which is deliberately narrow: scoped only to domains/**, src/verify/**,
+# src/domain/**, running only `npm run verify-domains`, by design, for the
+# fastest possible feedback on a bad domain package specifically. This
+# workflow is the broader one: any push or PR, the whole self-contained
+# test surface. A second file, not an expansion of verify.yml, because
+# folding this into verify.yml would both blur its stated single purpose
+# and mean it silently wouldn't fire on the very changes these suites
+# actually cover (src/dashboard/, src/whatsapp/, src/store/, eval/**),
+# since verify.yml's trigger paths don't include any of them.
+#
+# Every suite run here is fully self-contained (ScriptedProvider / fake
+# model responses, no real network calls) -- confirmed by inspection
+# before adding each one, not assumed. Deliberately excludes anything
+# needing real credentials or live external calls (items 7-9, live
+# LLM/WhatsApp validation): those are blocked on an actual deployment
+# environment, not something CI can do, and are out of scope here on
+# purpose, not by oversight.
+#
+# Same caveat verify.yml's own header already carries, stated explicitly
+# rather than implied: NOT exercised against real GitHub Actions
+# infrastructure from within the sandbox this was written in -- that
+# needs an actual repo and a real CI run, neither available here. Syntax
+# and logic reviewed, and every `npm run` step below verified locally
+# first (see docs/ADL.md), not empirically verified the way everything
+# else in this project has been.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run verify-domains
+      - run: npm run regression
+      - run: npm run test:state
+      - run: npm run dashboard-verify
+      - run: npm run dashboard-xss-verify
+      - run: npm run webhook-security-verify
+      - run: npm run test:5a-harness
+      - run: npm run test:turn-context
