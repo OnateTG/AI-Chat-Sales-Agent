@@ -129,6 +129,14 @@
     margin-left: 8px;
   }
   button.help-btn:hover { background: var(--bg); color: var(--ink); border-color: var(--muted); }
+  button.parse-btn {
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--signal-live);
+    padding: 6px 14px;
+    font-size: 12px;
+  }
+  button.parse-btn:hover { background: var(--signal-live-bg); }
 
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 20px; margin-bottom: 16px; }
   .field-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
@@ -143,6 +151,56 @@
   .error-box { background: var(--signal-alert-bg); color: var(--signal-alert); padding: 12px 16px; border-radius: 5px; margin-bottom: 16px; font-family: var(--font-mono); font-size: 12.5px; white-space: pre-wrap; }
   .success-box { background: var(--signal-live-bg); color: var(--signal-live); padding: 12px 16px; border-radius: 5px; margin-bottom: 16px; }
   .back-link { color: var(--muted); cursor: pointer; font-size: 13px; margin-bottom: 12px; display: inline-block; }
+
+  /* Bulk paste panel */
+  .bulk-paste-panel {
+    background: var(--bg);
+    border: 1px dashed var(--line);
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .bulk-paste-panel label {
+    font-weight: 600;
+    color: var(--ink);
+    display: block;
+    margin-bottom: 8px;
+  }
+  .bulk-paste-panel textarea {
+    width: 100%;
+    min-height: 120px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    resize: vertical;
+    margin-bottom: 12px;
+  }
+  .bulk-paste-panel .parse-hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+
+  /* Toast notification */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--ink);
+    color: var(--panel);
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    z-index: 2000;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .toast.success { background: var(--signal-live); }
+  .toast.error { background: var(--signal-alert); }
 
   /* Modal styles */
   .modal-overlay {
@@ -272,6 +330,9 @@
     <main id="main"></main>
   </div>
 </div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
 
 <!-- Business Knowledge Guide Modal -->
 <div class="modal-overlay" id="bk-guide-modal" role="dialog" aria-labelledby="bk-guide-title" aria-modal="true">
@@ -414,6 +475,58 @@ function pillEl(value) {
   return h("span", { class: `pill pill-${cls}` }, value ?? "");
 }
 
+// Toast notification
+function showToast(message, type = "info") {
+  const container = document.getElementById("toast-container");
+  const toast = h("div", { class: `toast ${type}` }, message);
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("show"));
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 200);
+  }, 3000);
+}
+
+// Parse bulk markdown into topic objects
+function parseBulkMarkdown(markdown) {
+  // Split by ## headers, skip content before first ##
+  const sections = markdown
+    .split(/^##\s+/m)
+    .slice(1)
+    .map(s => s.trim())
+    .filter(Boolean);
+  
+  if (sections.length === 0) {
+    return null;
+  }
+  
+  return sections.map(section => {
+    const lines = section.split('\n');
+    const topic = lines[0].trim();
+    const content = lines.slice(1).join('\n').trim();
+    return { topic, content };
+  });
+}
+
+// Create topic field elements
+function createTopicFields(topic, content, index) {
+  const nameInput = h("input", { class: "topic-name", "data-idx": String(index), style: "width:100%; margin-bottom:6px; font-weight:600;" });
+  nameInput.value = topic;
+  const contentArea = h("textarea", { class: "topic-content", "data-idx": String(index), rows: "2", style: "width:100%;" });
+  contentArea.value = content;
+  return h("div", { style: "margin-bottom:14px;" }, nameInput, contentArea);
+}
+
+// Populate topics panel from parsed data
+function populateTopicsFromParsed(topics) {
+  const topicsPanel = document.getElementById("topics-panel");
+  clear(topicsPanel);
+  
+  topics.forEach((t, i) => {
+    topicsPanel.appendChild(createTopicFields(t.topic, t.content, i));
+  });
+}
+
 async function refreshStatusStrip() {
   const strip = document.getElementById("status-strip");
   try {
@@ -435,7 +548,6 @@ async function refreshStatusStrip() {
 
 async function renderConversationsList() {
   const main = document.getElementById("main");
-  // Static shell only -- no data interpolation anywhere in this literal, safe as innerHTML.
   main.innerHTML = `
     <h1>Conversations</h1>
     <div class="toolbar">
@@ -484,9 +596,6 @@ async function loadConversations() {
         h("td", null, r.automation_paused ? h("span", { class: "pill pill-paused" }, "paused") : h("span", { class: "pill pill-active" }, "running")),
         h("td", { class: "mono" }, r.last_activity ? new Date(r.last_activity).toLocaleString() : "—")
       );
-      // Real event listener closing over r.phone -- not a string built
-      // via onclick="renderConversationDetail('${r.phone}')", which would
-      // let a phone/customer field break out of the JS string literal.
       tr.addEventListener("click", () => renderConversationDetail(r.phone));
       rows.append(tr);
     }
@@ -587,7 +696,7 @@ async function renderConfig() {
   const pricingPanel = h("div", { class: "panel", id: "pricing-panel" });
   for (const [option, range] of Object.entries(config.pricing_ranges)) {
     const input = h("input", { class: "pricing-input", "data-option": option });
-    input.value = range || ""; // property assignment -- never parsed as markup
+    input.value = range || "";
     pricingPanel.append(h("div", { class: "field-row" }, h("span", null, option), input));
   }
   main.append(pricingPanel);
@@ -598,14 +707,21 @@ async function renderConfig() {
     h("button", { class: "help-btn", id: "bk-help-btn" }, "Guide")
   );
   main.append(bkHeader);
-  
+
+  // Bulk paste panel
+  const bulkPastePanel = h("div", { class: "bulk-paste-panel", id: "bulk-paste-panel" });
+  bulkPastePanel.append(
+    h("label", null, "Paste filled template (markdown with ## headers):"),
+    h("textarea", { id: "bulk-paste-textarea", placeholder: "Paste your filled business knowledge template here…" }),
+    h("button", { class: "parse-btn", id: "parse-bulk-btn" }, "Parse into topics"),
+    h("div", { class: "parse-hint" }, "Splits on ## headers. First line of each section = topic name, rest = content.")
+  );
+  main.append(bulkPastePanel);
+
+  // Topics panel (individual fields)
   const topicsPanel = h("div", { class: "panel", id: "topics-panel" });
   config.business_knowledge_topics.forEach((t, i) => {
-    const nameInput = h("input", { class: "topic-name", "data-idx": String(i), style: "width:100%; margin-bottom:6px; font-weight:600;" });
-    nameInput.value = t.topic;
-    const contentArea = h("textarea", { class: "topic-content", "data-idx": String(i), rows: "2", style: "width:100%;" });
-    contentArea.value = t.content; // property assignment -- no </textarea> breakout possible
-    topicsPanel.append(h("div", { style: "margin-bottom:14px;" }, nameInput, contentArea));
+    topicsPanel.appendChild(createTopicFields(t.topic, t.content, i));
   });
   main.append(topicsPanel);
 
@@ -645,6 +761,27 @@ async function renderConfig() {
     copyBtn.textContent = "Copied!";
     setTimeout(() => { copyBtn.textContent = "Copy Template"; }, 2000);
   });
+
+  // Wire up bulk paste
+  const parseBtn = document.getElementById("parse-bulk-btn");
+  const bulkTextarea = document.getElementById("bulk-paste-textarea");
+  
+  parseBtn.addEventListener("click", () => {
+    const markdown = bulkTextarea.value.trim();
+    if (!markdown) {
+      showToast("Nothing to parse — paste content first", "error");
+      return;
+    }
+    const parsed = parseBulkMarkdown(markdown);
+    if (!parsed) {
+      showToast("No ## headers found — check template format", "error");
+      return;
+    }
+    populateTopicsFromParsed(parsed);
+    showToast(`Parsed ${parsed.length} topics`, "success");
+    // Clear bulk textarea after successful parse
+    bulkTextarea.value = "";
+  });
 }
 
 function collectChanges() {
@@ -673,10 +810,6 @@ async function previewConfigChanges() {
     const { diff, errors } = await api("/config/preview", { method: "POST", body: JSON.stringify(changes) });
     window._pendingChanges = changes;
 
-    // A blocked change (e.g. an option rename -- see docs/ADL.md item 12)
-    // shows before the diff and disables saving regardless of what else
-    // changed in this batch -- there's no partial save, so one blocked
-    // field makes the whole batch unsavable as-is until it's undone.
     if (errors && errors.length > 0) {
       const errBox = h("div", { class: "error-box" });
       errBox.append("This can't be saved:");
