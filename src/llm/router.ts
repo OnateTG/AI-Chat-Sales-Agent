@@ -2,11 +2,11 @@
  * Model router — not part of the six-document spec (that's deliberate;
  * Runtime/Prompt Spec define WHAT each call needs as input/output, not
  * which model serves it). This is the "your original requirement" layer:
- * NVIDIA API primary, Ollama local fallback, multiple models in rotation
- * to avoid rate limits.
+ * Groq primary, NVIDIA API fallback, Ollama local fallback, multiple models
+ * in rotation to avoid rate limits.
  *
- * Both NVIDIA NIM and Ollama expose OpenAI-compatible /chat/completions
- * endpoints, so one client shape covers both — only base URL, model name,
+ * Groq, NVIDIA NIM, and Ollama all expose OpenAI-compatible /chat/completions
+ * endpoints, so one client shape covers all three — only base URL, model name,
  * and auth header differ.
  *
  * Exposes a `tier` param ("fast" | "quality") because Call A (structured
@@ -44,6 +44,20 @@ interface ProviderConfig {
 function loadProviders(): ProviderConfig[] {
   const providers: ProviderConfig[] = [];
 
+  // Groq (primary) — fast, free tier available
+  if (process.env.GROQ_API_KEY) {
+    providers.push({
+      name: "groq",
+      baseUrl: process.env.GROQ_BASE_URL ?? "https://api.groq.com/openai/v1",
+      apiKey: process.env.GROQ_API_KEY,
+      models: {
+        fast: process.env.GROQ_MODEL_FAST ?? "llama-3.1-8b-instant",
+        quality: process.env.GROQ_MODEL_QUALITY ?? "llama-3.3-70b-versatile",
+      },
+    });
+  }
+
+  // NVIDIA NIM (fallback)
   if (process.env.NVIDIA_API_KEY) {
     providers.push({
       name: "nvidia",
@@ -69,7 +83,7 @@ function loadProviders(): ProviderConfig[] {
   });
 
   if (providers.length === 0) {
-    throw new Error("No model providers configured — set NVIDIA_API_KEY or ensure Ollama is reachable.");
+    throw new Error("No model providers configured — set GROQ_API_KEY, NVIDIA_API_KEY, or ensure Ollama is reachable.");
   }
 
   return providers;
@@ -88,10 +102,10 @@ export interface ChatCompletionParams {
 }
 
 /**
- * Sends a chat completion request, trying providers in order (NVIDIA first,
- * Ollama fallback) until one succeeds. Does not itself retry the SAME
- * provider on failure — that's the caller's job (see callA.ts's schema
- * -validation retry, which is a different concern: retrying a malformed
+ * Sends a chat completion request, trying providers in order (Groq first,
+ * NVIDIA second, Ollama fallback) until one succeeds. Does not itself retry
+ * the SAME provider on failure — that's the caller's job (see callA.ts's
+ * schema-validation retry, which is a different concern: retrying a malformed
  * response vs. falling back on a dead/rate-limited provider).
  */
 export async function chatCompletion(params: ChatCompletionParams): Promise<string> {
