@@ -1,0 +1,117 @@
+# Insurance Qualification -- second domain package, built to test kernel
+# reusability (docs/ADL.md entry 009). Restructured to the domain/business/
+# business_knowledge three-section split to match the current Domain
+# Package Specification. Zero Runtime, State Model, Prompt Specification,
+# or Engine algorithm changes were needed for the original experiment. See
+# eval/domain/insurance-friction-demo.ts for the empirical before/after.
+
+business_package:
+  version: "0.1.0" # experimental -- built to test kernel reusability, pricing still placeholder
+
+domain:
+  name: "Insurance Qualification"
+  description: "Qualifying a lead for insurance coverage (auto, life, health, or property) and recommending a policy category"
+
+  variables:
+    core:
+      goal:
+        description: "What the customer wants insurance to achieve or protect"
+        importance: critical
+        completion:
+          required: [desired_outcome, business_reason]
+
+      current_situation:
+        description: "Whether they have existing coverage and its state"
+        importance: critical
+        completion:
+          # Same fix applied here from the start as in website-development.yaml:
+          # one always-answerable sub-attribute, not split into pieces that
+          # only sometimes both apply.
+          required: [situation_described]
+
+      gap:
+        description: "What's missing or at risk without proper coverage"
+        importance: high
+        completion:
+          required: [primary_exposure]
+
+      readiness:
+        description: "Timeline, budget awareness, decision authority"
+        importance: low
+        completion:
+          required: [timeline]
+
+    domain_specific:
+      # Deliberately ONE variable, generic across policy types -- see
+      # docs/ADL.md 009, Finding A. Which policy type fits is inferred at
+      # recommend time from available_options.fits_when, exactly like
+      # website-development never tracks "which of the 4 site types" as
+      # its own variable either.
+      coverage_needs:
+        description: "What specifically the customer wants covered, and to what extent"
+        importance: high
+        completion:
+          required: [coverage_scope]
+
+      # risk_factors REMOVED as a tracked variable -- same stopgap as
+      # website-development.yaml's branding_assets, see docs/ADL.md 009,
+      # Finding B. Not insurance-specific -- this is the kernel-level
+      # finding the experiment surfaced, applied here for consistency.
+
+  recommendation:
+    available_options:
+      - name: "Auto Insurance"
+        fits_when: "Customer's goal concerns vehicle protection, liability, or damage/theft coverage"
+      - name: "Life Insurance"
+        fits_when: "Customer's goal concerns income replacement or a family's financial protection if they die"
+      - name: "Health Insurance"
+        fits_when: "Customer's goal concerns medical cost protection for themselves or dependents"
+      - name: "Property Insurance"
+        fits_when: "Customer's goal concerns protecting a home, rental property, or business premises"
+
+    completion_requirement:
+      # Same workaround as website-development.yaml -- see ADL-009.
+      # Expanded to all declared variables since partial
+      # completion_requirement isn't currently functional.
+      - goal
+      - current_situation
+      - gap
+      - coverage_needs
+      - readiness
+
+    no_fit_fallback: >
+      If the completed state describes needs spanning multiple categories
+      (e.g. both auto and life), present the closest-fitting option and
+      note that coverage can be bundled, rather than forcing a single
+      rigid category -- same pattern as website-development's bundling case.
+
+business:
+  pricing:
+    ranges:                    # FACT -- Call B only
+      "Auto Insurance": "<PLACEHOLDER -- premiums vary widely by driving history and vehicle; see note below>"
+      "Life Insurance": "<PLACEHOLDER -- varies by age, health, coverage amount>"
+      "Health Insurance": "<PLACEHOLDER -- varies by age, family size, plan tier>"
+      "Property Insurance": "<PLACEHOLDER -- varies by property value and location risk>"
+    quoting_rules:              # RULE -- Engine-evaluated
+      - condition: "recommendation.completion_requirement not yet satisfied"
+        mode: range_only
+      - condition: "recommendation.completion_requirement satisfied"
+        mode: exact_quote_allowed
+
+business_knowledge:
+  topics:
+    - topic: "Risk factors"
+      content: >
+        If the customer volunteers driving history, health history, or
+        prior claims, note it -- affects pricing/underwriting, not tracked
+        toward the recommendation itself (see ADL-009).
+    - topic: "Pricing philosophy"
+      content: >
+        <PLACEHOLDER: unlike website pricing, insurance premiums depend on
+        underwriting factors not fully knowable from a qualification
+        conversation alone. Even under exact_quote_allowed, "exact" more
+        realistically means a personalized estimate pending underwriting,
+        not a truly fixed number. Do not restate the numeric ranges here --
+        those live in the structured business.pricing block above.>
+    - topic: "Coverage category differences"
+      content: "<PLACEHOLDER: what distinguishes each available_option at a level useful for a qualification conversation>"

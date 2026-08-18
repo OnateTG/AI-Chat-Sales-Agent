@@ -119,6 +119,16 @@
   button.secondary { background: var(--panel); color: var(--ink); }
   button.danger { background: var(--signal-alert); border-color: var(--signal-alert); }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.help-btn {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    margin-left: 8px;
+  }
+  button.help-btn:hover { background: var(--bg); color: var(--ink); border-color: var(--muted); }
 
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 20px; margin-bottom: 16px; }
   .field-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
@@ -133,6 +143,119 @@
   .error-box { background: var(--signal-alert-bg); color: var(--signal-alert); padding: 12px 16px; border-radius: 5px; margin-bottom: 16px; font-family: var(--font-mono); font-size: 12.5px; white-space: pre-wrap; }
   .success-box { background: var(--signal-live-bg); color: var(--signal-live); padding: 12px 16px; border-radius: 5px; margin-bottom: 16px; }
   .back-link { color: var(--muted); cursor: pointer; font-size: 13px; margin-bottom: 12px; display: inline-block; }
+
+  /* Modal styles */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(28, 35, 33, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 24px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+  }
+  .modal-overlay.open {
+    opacity: 1;
+    visibility: visible;
+  }
+  .modal {
+    background: var(--panel);
+    border-radius: 8px;
+    max-width: 720px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+    transform: scale(0.95);
+    transition: transform 0.2s;
+  }
+  .modal-overlay.open .modal {
+    transform: scale(1);
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .modal-title {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+  }
+  .modal-close {
+    background: transparent;
+    border: none;
+    font-size: 20px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    line-height: 1;
+  }
+  .modal-close:hover { color: var(--ink); }
+  .modal-body {
+    padding: 24px;
+  }
+  .modal-section {
+    margin-bottom: 24px;
+  }
+  .modal-section:last-child { margin-bottom: 0; }
+  .modal-section h3 {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .modal-section p {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 0 0 12px;
+  }
+  .modal-section pre {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ink);
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .modal-section code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: var(--bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .modal-section ul {
+    margin: 8px 0 12px;
+    padding-left: 20px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .modal-section li { margin-bottom: 4px; }
+  .copy-btn {
+    font-size: 11px;
+    padding: 6px 12px;
+    margin-top: 8px;
+  }
+  .h2-with-help { display: flex; align-items: center; gap: 8px; }
 </style>
 </head>
 <body>
@@ -147,6 +270,88 @@
   <div>
     <div class="status-strip" id="status-strip">loading status…</div>
     <main id="main"></main>
+  </div>
+</div>
+
+<!-- Business Knowledge Guide Modal -->
+<div class="modal-overlay" id="bk-guide-modal" role="dialog" aria-labelledby="bk-guide-title" aria-modal="true">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="bk-guide-title">Business Knowledge Guide</h2>
+      <button class="modal-close" id="bk-guide-close" aria-label="Close guide">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="color: var(--muted); margin-bottom: 20px;">This guide shows the recommended structure for business knowledge. Each topic below becomes a <code>topic</code> + <code>content</code> pair in the configuration. Copy the template, adapt it, and paste into the topics above.</p>
+      
+      <div class="modal-section">
+        <h3>Recommended Structure</h3>
+        <pre id="bk-template"># Business Knowledge for [Your Business Name]
+
+## 1. Identity & Offering
+- What we sell (core products/services)
+- Who we serve (ideal customer profile)
+- What makes us different (USP)
+
+## 2. Sales Philosophy & Approach
+- How we sell (consultative, educational, relationship-first)
+- What we NEVER do (push, oversell, mislead)
+- Core values in sales conversations
+
+## 3. Product/Service Deep Dive
+- Each offering: what it is, who it's for, key benefits
+- Common misconceptions customers have
+- What "good fit" vs "bad fit" looks like
+
+## 4. Pricing Philosophy
+- How we price (value-based, project-based, retainer, etc.)
+- Typical ranges or "starts at" figures
+- When exact quotes are possible vs when discovery needed
+- Payment terms, deposits, refunds
+
+## 5. Objection Handling Playbook
+- Top 5-10 objections we hear
+- Our genuine response to each (principles, not scripts)
+- When to push back vs when to accommodate
+
+## 6. Customer Journey & Timeline
+- Typical sales cycle length
+- Key milestones (discovery → proposal → decision → delivery)
+- What happens after they say yes
+
+## 7. FAQ & Knowledge Base
+- Technical/implementation questions
+- Scope boundaries (what's included/excluded)
+- Integration/compatibility info
+
+## 8. Team & Escalation
+- Who does what (for handoff context)
+- When to escalate to human
+- Contact info for specialist questions</pre>
+        <button class="copy-btn" id="bk-copy-btn">Copy Template</button>
+      </div>
+
+      <div class="modal-section">
+        <h3>Why This Structure Works</h3>
+        <ul>
+          <li><strong>Markdown headers</strong> help the LLM parse and retrieve relevant sections</li>
+          <li><strong>Explicit "NEVER do" lists</strong> are more effective guardrails than "do" lists</li>
+          <li><strong>Principles over scripts</strong> let the agent adapt naturally to each conversation</li>
+          <li><strong>Pricing philosophy</strong> replaces rigid ranges — works for custom-quote businesses</li>
+          <li><strong>Escalation triggers</strong> tell the agent exactly when to hand off</li>
+        </ul>
+      </div>
+
+      <div class="modal-section">
+        <h3>Tips for Good Content</h3>
+        <ul>
+          <li>Write as if briefing a smart new hire — specific, not generic</li>
+          <li>Include real phrases your team uses ("We usually say…")</li>
+          <li>Document edge cases you've actually encountered</li>
+          <li>Keep each topic focused; split if it gets long</li>
+          <li>Update after every few conversations — treat it as living docs</li>
+        </ul>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -387,7 +592,13 @@ async function renderConfig() {
   }
   main.append(pricingPanel);
 
-  main.append(h("h2", null, "Business knowledge topics"));
+  // Business Knowledge with help button
+  const bkHeader = h("h2", { class: "h2-with-help" },
+    "Business knowledge topics",
+    h("button", { class: "help-btn", id: "bk-help-btn" }, "Guide")
+  );
+  main.append(bkHeader);
+  
   const topicsPanel = h("div", { class: "panel", id: "topics-panel" });
   config.business_knowledge_topics.forEach((t, i) => {
     const nameInput = h("input", { class: "topic-name", "data-idx": String(i), style: "width:100%; margin-bottom:6px; font-weight:600;" });
@@ -417,6 +628,23 @@ async function renderConfig() {
   main.append(h("div", { id: "diff-panel" }));
 
   window._configState = config;
+
+  // Wire up the guide modal
+  const modal = document.getElementById("bk-guide-modal");
+  const openBtn = document.getElementById("bk-help-btn");
+  const closeBtn = document.getElementById("bk-guide-close");
+  const copyBtn = document.getElementById("bk-copy-btn");
+
+  openBtn.addEventListener("click", () => modal.classList.add("open"));
+  closeBtn.addEventListener("click", () => modal.classList.remove("open"));
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.remove("open"); });
+  
+  copyBtn.addEventListener("click", async () => {
+    const template = document.getElementById("bk-template").textContent;
+    await navigator.clipboard.writeText(template);
+    copyBtn.textContent = "Copied!";
+    setTimeout(() => { copyBtn.textContent = "Copy Template"; }, 2000);
+  });
 }
 
 function collectChanges() {
